@@ -195,3 +195,23 @@ func (b *OrderBook) restOrder(o *order) *priceLevel {
 	b.orders[o.id] = o
 	return lvl
 }
+
+// Cancel removes a resting order. The engine owns the order map, so it
+// performs the ownership check: a cancel from a non-owner is rejected.
+func (b *OrderBook) Cancel(orderId, requestingOwner int64) []Event {
+	o, ok := b.orders[orderId]
+	if !ok {
+		return []Event{{Type: EvRejected, OrderId: orderId, Owner: requestingOwner, Reason: ReasonUnknownOrder}}
+	}
+	if o.owner != requestingOwner {
+		return []Event{{Type: EvRejected, OrderId: orderId, Owner: requestingOwner, Reason: ReasonNotOwner}}
+	}
+	lvl := o.level
+	lvl.totalQty -= o.qty
+	b.unlink(o)
+	return []Event{
+		{Type: EvCanceled, OrderId: o.id, ClientOrderId: o.clientOrderId, Owner: o.owner,
+			Side: o.side, Price: o.price, RemainingQty: o.qty},
+		{Type: EvBookUpdate, Side: o.side, Price: lvl.price, AggregateQty: lvl.totalQty},
+	}
+}
