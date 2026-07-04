@@ -99,9 +99,73 @@ func (b *OrderBook) NewLimitOrder(cmd NewOrderCmd) []Event {
 	return events
 }
 
-// match is implemented in Task 2.
 func (b *OrderBook) match(taker *order, events []Event, touch func(Side, *priceLevel)) []Event {
+	for taker.qty > 0 {
+		opp, oppSide := &b.asks, Sell
+		if taker.side == Sell {
+			opp, oppSide = &b.bids, Buy
+		}
+		if len(*opp) == 0 {
+			break
+		}
+		best := (*opp)[0]
+		if taker.side == Buy && best.price > taker.price {
+			break
+		}
+		if taker.side == Sell && best.price < taker.price {
+			break
+		}
+		maker := best.head
+		fill := taker.qty
+		if maker.qty < fill {
+			fill = maker.qty
+		}
+		maker.qty -= fill
+		taker.qty -= fill
+		best.totalQty -= fill
+		touch(oppSide, best)
+		events = append(events,
+			Event{Type: EvTrade, Price: best.price, Qty: fill,
+				MakerOrderId: maker.id, TakerOrderId: taker.id,
+				MakerOwner: maker.owner, TakerOwner: taker.owner},
+			Event{Type: EvFilled, OrderId: maker.id, ClientOrderId: maker.clientOrderId, Owner: maker.owner,
+				Side: maker.side, Price: best.price, Qty: fill, RemainingQty: maker.qty},
+			Event{Type: EvFilled, OrderId: taker.id, ClientOrderId: taker.clientOrderId, Owner: taker.owner,
+				Side: taker.side, Price: best.price, Qty: fill, RemainingQty: taker.qty},
+		)
+		if maker.qty == 0 {
+			b.unlink(maker)
+		}
+	}
 	return events
+}
+
+// unlink removes an order from its level FIFO and the order map, and removes
+// the level from its side when it becomes empty. It does not touch totalQty:
+// callers account for quantity themselves.
+func (b *OrderBook) unlink(o *order) {
+	lvl := o.level
+	if o.prev != nil {
+		o.prev.next = o.next
+	} else {
+		lvl.head = o.next
+	}
+	if o.next != nil {
+		o.next.prev = o.prev
+	} else {
+		lvl.tail = o.prev
+	}
+	o.prev, o.next, o.level = nil, nil, nil
+	delete(b.orders, o.id)
+	if lvl.head == nil {
+		levels, desc := &b.asks, false
+		if o.side == Buy {
+			levels, desc = &b.bids, true
+		}
+		if idx, found := levelIndex(*levels, lvl.price, desc); found {
+			*levels = append((*levels)[:idx], (*levels)[idx+1:]...)
+		}
+	}
 }
 
 func (b *OrderBook) restOrder(o *order) *priceLevel {
