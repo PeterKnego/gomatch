@@ -2,7 +2,10 @@ module gomatch
 
 go 1.22
 
-require github.com/lirm/aeron-go v0.2.0
+require (
+	github.com/google/uuid v1.6.0
+	github.com/lirm/aeron-go v0.2.0
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
