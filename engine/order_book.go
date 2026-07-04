@@ -88,7 +88,7 @@ func (b *OrderBook) NewLimitOrder(cmd NewOrderCmd) []Event {
 		changedSides = append(changedSides, side)
 	}
 
-	events = b.match(taker, events, touch) // added in Task 2; no-op until then
+	events = b.match(taker, events, touch)
 	if taker.qty > 0 {
 		lvl := b.restOrder(taker)
 		touch(taker.side, lvl)

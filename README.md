@@ -23,4 +23,12 @@ Start a single-node cluster + engine (see systest harness for config), then:
 
     go run ./cmd/loadgen -orders 100000 -ingress 0=localhost:20000
 
+## Known limitations (v1)
+
+- If only the service container restarts while the consensus module keeps
+  running, sessions restored from a cluster snapshot are not visible to the
+  service (the cluster library does not replay them through OnSessionOpen),
+  so those clients stop receiving egress until they reconnect. A full node
+  restart — the deployment shape v1 targets — does not have this problem.
+
 Design: `docs/superpowers/specs/2026-07-04-matching-engine-design.md`.

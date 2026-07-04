@@ -2,6 +2,7 @@ package engine
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 )
 
@@ -64,7 +65,15 @@ func TestRestorePreservesIdsAndMatching(t *testing.T) {
 }
 
 func TestRestoreRejectsBadHeader(t *testing.T) {
-	if _, err := RestoreOrderBook(bytes.NewReader([]byte{1, 2, 3, 4, 5, 6, 7, 8})); err == nil {
-		t.Fatal("expected error for bad magic")
+	// A full-size header (magic + version + instrument + nextOrderId + count
+	// = 28 bytes) with the wrong magic must be rejected by the magic check.
+	bad := make([]byte, 28)
+	if _, err := RestoreOrderBook(bytes.NewReader(bad)); err == nil ||
+		!strings.Contains(err.Error(), "magic") {
+		t.Fatalf("expected bad-magic error, got %v", err)
+	}
+	// Truncated input must also fail (EOF path).
+	if _, err := RestoreOrderBook(bytes.NewReader(bad[:8])); err == nil {
+		t.Fatal("expected error for truncated header")
 	}
 }
