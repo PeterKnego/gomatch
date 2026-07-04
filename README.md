@@ -23,6 +23,11 @@ Start a single-node cluster + engine (see systest harness for config), then:
 
     go run ./cmd/loadgen -orders 100000 -ingress 0=localhost:20000
 
+Open-loop by default (throughput numbers; latency reflects burst queueing).
+Pass `-rate N` to pace submission at N orders/sec for honest per-order
+latency percentiles — measured from each order's *scheduled* send time, so
+generator stalls count (coordinated-omission correction).
+
 ## Known limitations (v1)
 
 - If only the service container restarts while the consensus module keeps

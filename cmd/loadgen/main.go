@@ -36,6 +36,7 @@ func (c *collector) OnBookUpdate(client.Book) {}
 
 func main() {
 	orders := flag.Int("orders", 100000, "number of orders to submit")
+	rate := flag.Int("rate", 0, "target submission rate in orders/sec (0 = open-loop)")
 	aeronDir := flag.String("aeron-dir", fmt.Sprintf("/dev/shm/aeron-%s", os.Getenv("USER")), "aeron media driver directory")
 	ingress := flag.String("ingress", "0=localhost:20000", "cluster ingress endpoints")
 	flag.Parse()
@@ -47,6 +48,11 @@ func main() {
 	}
 	defer c.Close()
 
+	var interval time.Duration
+	if *rate > 0 {
+		interval = time.Second / time.Duration(*rate)
+	}
+
 	rng := rand.New(rand.NewSource(1))
 	start := time.Now()
 	for i := 0; i < *orders; i++ {
@@ -56,8 +62,18 @@ func main() {
 		}
 		price := int64(100 + rng.Intn(5) - 2) // 98..102 straddling mid: ~half cross
 		id := int64(i + 1)
+		sendTime := time.Now()
+		if interval > 0 {
+			// Latency is measured from the scheduled time, not the actual
+			// send, so generator stalls count against the reported numbers
+			// (coordinated-omission correction).
+			sendTime = start.Add(time.Duration(i) * interval)
+			for time.Now().Before(sendTime) {
+				c.Poll()
+			}
+		}
 		col.mu.Lock()
-		col.submitted[id] = time.Now()
+		col.submitted[id] = sendTime
 		col.mu.Unlock()
 		if err := c.SubmitOrder(id, side, price, int64(rng.Intn(10)+1)); err != nil {
 			panic(err)
@@ -86,7 +102,11 @@ func main() {
 		idx := int(p * float64(len(col.latencies)-1))
 		return col.latencies[idx]
 	}
-	fmt.Printf("orders=%d acked=%d elapsed=%v rate=%.0f orders/sec\n",
-		*orders, col.acked, elapsed, float64(col.acked)/elapsed.Seconds())
+	target := ""
+	if *rate > 0 {
+		target = fmt.Sprintf(" target=%d/s", *rate)
+	}
+	fmt.Printf("orders=%d acked=%d%s elapsed=%v rate=%.0f orders/sec\n",
+		*orders, col.acked, target, elapsed, float64(col.acked)/elapsed.Seconds())
 	fmt.Printf("ack latency p50=%v p99=%v p99.9=%v\n", pct(0.50), pct(0.99), pct(0.999))
 }
