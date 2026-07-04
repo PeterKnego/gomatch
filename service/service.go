@@ -173,7 +173,9 @@ func (s *MatchingService) sendTo(sessionId int64, frame []byte) {
 
 func (s *MatchingService) broadcast(frame []byte) {
 	for _, id := range s.sessionIds {
-		s.offer(s.sessions[id], frame)
+		if sess, ok := s.sessions[id]; ok {
+			s.offer(sess, frame)
+		}
 	}
 }
 

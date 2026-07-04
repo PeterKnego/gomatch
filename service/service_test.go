@@ -130,6 +130,8 @@ func TestClosedSessionSkipped(t *testing.T) {
 	s.OnStart(&fakeCluster{}, nil)
 	a := &fakeSession{id: 1}
 	s.OnSessionOpen(a, 1)
+	b := &fakeSession{id: 2}
+	s.OnSessionOpen(b, 1)
 	s.OnSessionClose(a, 2, ccodecs.CloseReason.CLIENT_ACTION)
 	order := ingressFrame(t, &codecs.NewOrder{ClientOrderId: 1, Side: codecs.Side.BUY, Price: 10, Qty: 1})
 	// Session already closed: engine still applies the (replayed) command,
@@ -137,6 +139,9 @@ func TestClosedSessionSkipped(t *testing.T) {
 	s.OnSessionMessage(a, 3, order, 0, order.Capacity(), nil)
 	if len(a.frames) != 0 {
 		t.Fatalf("expected no frames to closed session, got %d", len(a.frames))
+	}
+	if len(b.frames) != 1 {
+		t.Fatalf("expected surviving session to receive 1 broadcast frame, got %d", len(b.frames))
 	}
 }
 
