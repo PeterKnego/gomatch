@@ -36,10 +36,19 @@ func (c *clusterEgress) OnMessage(ac *aeroncluster.AeronCluster, timestamp int64
 
 // Connect connects to the cluster. ingressEndpoints example: "0=localhost:20000".
 func Connect(aeronDir, ingressEndpoints string, l Listener) (*Client, error) {
+	return ConnectWithEgress(aeronDir, ingressEndpoints, "localhost:0", l)
+}
+
+// ConnectWithEgress is Connect with an explicit egress endpoint: the
+// address:port on this host that cluster nodes send responses to. It must be
+// reachable from every node — the default localhost:0 only works when the
+// leader runs on the same host as the client.
+func ConnectWithEgress(aeronDir, ingressEndpoints, egressEndpoint string, l Listener) (*Client, error) {
 	adapter := newEgressAdapter(l)
 	opts := aeroncluster.NewOptions()
 	opts.IngressChannel = "aeron:udp?alias=gomatch-ingress"
 	opts.IngressEndpoints = ingressEndpoints
+	opts.EgressChannel = fmt.Sprintf("aeron:udp?alias=gomatch-egress|endpoint=%s", egressEndpoint)
 	ac, err := aeroncluster.NewAeronCluster(
 		aeron.NewContext().AeronDir(aeronDir), opts, &clusterEgress{a: adapter})
 	if err != nil {

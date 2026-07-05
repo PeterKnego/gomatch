@@ -39,10 +39,11 @@ func main() {
 	rate := flag.Int("rate", 0, "target submission rate in orders/sec (0 = open-loop)")
 	aeronDir := flag.String("aeron-dir", fmt.Sprintf("/dev/shm/aeron-%s", os.Getenv("USER")), "aeron media driver directory")
 	ingress := flag.String("ingress", "0=localhost:20000", "cluster ingress endpoints")
+	egress := flag.String("egress", "localhost:0", "egress endpoint on this host, reachable from all cluster nodes")
 	flag.Parse()
 
 	col := &collector{submitted: make(map[int64]time.Time)}
-	c, err := client.Connect(*aeronDir, *ingress, col)
+	c, err := client.ConnectWithEgress(*aeronDir, *ingress, *egress, col)
 	if err != nil {
 		panic(err)
 	}
