@@ -43,7 +43,9 @@ Notes on reading this table:
 ## Wire-compat cross-check
 
 The Go loadgen (`cmd/loadgen`) was pointed at a running **Java** engine
-(`EngineMain`, same cluster) for a short run:
+(`EngineMain`, same cluster) for a short run. This cross-check reused the
+still-running Java-engine cluster from the Java benchmark run above rather
+than starting a fresh cluster:
 
 ```
 orders=5000 acked=5000 elapsed=25.095328ms rate=199240 orders/sec

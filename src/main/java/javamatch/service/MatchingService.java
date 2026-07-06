@@ -52,6 +52,7 @@ public final class MatchingService implements ClusteredService {
     private final ExpandableDirectByteBuffer egressBuffer = new ExpandableDirectByteBuffer(256);
     private final ExpandableArrayBuffer snapshotBuffer = new ExpandableArrayBuffer();
 
+    @Override
     public void onStart(Cluster cluster, Image snapshotImage) {
         this.cluster = cluster;
         if (snapshotImage == null) {
@@ -78,11 +79,13 @@ public final class MatchingService implements ClusteredService {
         book = Snapshots.restore(buffer, offset, length);
     }
 
+    @Override
     public void onSessionOpen(ClientSession session, long timestamp) {
         sessions.put(session.id(), session);
         sessionIds.addLong(session.id());
     }
 
+    @Override
     public void onSessionClose(ClientSession session, long timestamp, CloseReason closeReason) {
         sessions.remove(session.id());
         for (int i = 0; i < sessionIds.size(); i++) {
@@ -93,6 +96,7 @@ public final class MatchingService implements ClusteredService {
         }
     }
 
+    @Override
     public void onSessionMessage(
         ClientSession session,
         long timestamp,
@@ -119,10 +123,21 @@ public final class MatchingService implements ClusteredService {
             case NEW_ORDER_TEMPLATE_ID -> {
                 newOrderDecoder.wrap(buffer, offset + SBE_HEADER_LENGTH,
                     headerDecoder.blockLength(), headerDecoder.version());
+                byte sideRaw = newOrderDecoder.sideRaw();
+                if (sideRaw != 0 && sideRaw != 1) {
+                    // NewOrderDecoder.side() calls Side.get(byte), which throws
+                    // IllegalArgumentException for any out-of-range value. A
+                    // malformed frame in the replicated log would otherwise
+                    // throw out of onSessionMessage on every replay. Decode
+                    // errors are logged and dropped instead (Go parity).
+                    System.err.println("invalid side=" + sideRaw + " clientOrderId="
+                        + newOrderDecoder.clientOrderId() + " - dropping frame");
+                    return;
+                }
                 events = book.newLimitOrder(new NewOrderCmd(
                     newOrderDecoder.clientOrderId(),
                     session.id(),
-                    Side.fromCode((byte) newOrderDecoder.side().value()),
+                    Side.fromCode(sideRaw),
                     newOrderDecoder.price(),
                     newOrderDecoder.qty()));
             }
@@ -182,6 +197,7 @@ public final class MatchingService implements ClusteredService {
         }
     }
 
+    @Override
     public void onTimerEvent(long correlationId, long timestamp) {
     }
 
@@ -195,6 +211,7 @@ public final class MatchingService implements ClusteredService {
         }
     }
 
+    @Override
     public void onTakeSnapshot(ExclusivePublication snapshotPublication) {
         writeSnapshot((buffer, offset, length) -> {
             while (true) {
@@ -203,6 +220,9 @@ public final class MatchingService implements ClusteredService {
                     return;
                 }
                 if (result != Publication.BACK_PRESSURED && result != Publication.ADMIN_ACTION) {
+                    // Deliberate deviation from Go: Go logs-and-continues on
+                    // snapshot offer failure, but Java throws so a truncated
+                    // snapshot can never be silently committed.
                     throw new IllegalStateException("snapshot offer failed: " + result);
                 }
                 cluster.idleStrategy().idle(0);
@@ -210,10 +230,12 @@ public final class MatchingService implements ClusteredService {
         });
     }
 
+    @Override
     public void onRoleChange(Cluster.Role newRole) {
         System.out.println("role change: " + newRole);
     }
 
+    @Override
     public void onTerminate(Cluster cluster) {
     }
 }

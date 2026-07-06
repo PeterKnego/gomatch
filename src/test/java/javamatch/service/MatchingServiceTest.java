@@ -137,6 +137,26 @@ class MatchingServiceTest {
     }
 
     @Test
+    void invalidSideByteLoggedAndDropped() {
+        MatchingService s = new MatchingService();
+        s.onStart(new FakeCluster(0), null);
+        FakeClientSession sess = new FakeClientSession(1);
+        s.onSessionOpen(sess, 1);
+        FakeClientSession other = new FakeClientSession(2);
+        s.onSessionOpen(other, 1);
+        UnsafeBuffer order = newOrderFrame(1, Side.BUY, 10, 5);
+        // side field offset in the frame: header (8 bytes) + clientOrderId
+        // (8 bytes) = 16. Overwrite with a value outside {0, 1}: the
+        // generated NewOrderDecoder.side() would throw IllegalArgumentException
+        // for this byte (SBE Side.get() only accepts 0, 1 or the null value
+        // -128), which would otherwise wedge replay on a poison frame.
+        order.putByte(16, (byte) 7);
+        s.onSessionMessage(sess, 1, order, 0, order.capacity(), null);
+        assertEquals(0, sess.frames.size());
+        assertEquals(0, other.frames.size());
+    }
+
+    @Test
     void snapshotChunksRoundTrip() {
         MatchingService s = new MatchingService();
         s.onStart(new FakeCluster(0), null);
