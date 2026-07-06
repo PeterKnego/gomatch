@@ -3,7 +3,8 @@
 Single-instrument limit order book matching engine running as a Java
 ClusteredService on Aeron Cluster 1.52. Java port of
 [gomatch](../go) — same SBE schema (901), same snapshot format, same
-event semantics; either project's loadgen can benchmark either engine.
+event semantics; either side's loadgen can benchmark either engine.
+This is the Java half of the [aeron-go vs Java comparison](../README.md).
 
 ## Layout
 
@@ -33,8 +34,10 @@ Pass `-rate N` in `appArgs` to pace submission for honest per-order latency
 percentiles (coordinated-omission corrected, measured from scheduled send
 time).
 
-To benchmark the Go engine on the same cluster, run gomatch's
-`cmd/engine` with the same `AERON_DIR`/`CLUSTER_DIR` instead of `runEngine`.
+To benchmark the Go engine on the same cluster, run `go/cmd/engine`
+(from `../go`) with the same `AERON_DIR`/`CLUSTER_DIR` instead of
+`runEngine`. For the 3-node cloud sweep, see [`../bench-infra`](../bench-infra);
+results are in [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md).
 
 ## Known limitations (v1)
 

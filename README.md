@@ -27,6 +27,17 @@ its p99 knee arrives at ~100k orders/s vs ~60k/s for Go, and its open-loop
 ceiling is ~28% higher (354k vs 277k orders/s). On a shared single-node VM
 the engines are within ~2% — the divergence only shows on real hardware.
 
+## Cloud benchmark
+
+    cd bench-infra
+    cp example.aws.tfvars terraform.tfvars   # edit ssh key + allow_ssh_cidr
+    cp .env.example .env                     # fill in AWS credentials
+    make init && make up                     # provision 3 nodes
+    make bench-both                          # Go sweep, then Java sweep
+    make destroy                             # nothing auto-reaps!
+
+Results land in `bench-infra/bench-out/<timestamp>/results-<engine>.txt`.
+
 ## Test
 
     cd go   && go test ./engine/ ./protocol/ ./service/ ./client/   # Go unit

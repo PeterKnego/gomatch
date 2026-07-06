@@ -1,7 +1,9 @@
-# gomatch
+# gomatch — Go implementation
 
 Single-instrument limit order book matching engine running as a Go
 ClusteredService on Aeron Cluster (fork `PeterKnego/aeron-go` v0.2.0).
+This is the Go half of the [aeron-go vs Java comparison](../README.md);
+the wire-compatible Java twin lives in [`../java`](../java).
 
 ## Layout
 
@@ -10,7 +12,9 @@ ClusteredService on Aeron Cluster (fork `PeterKnego/aeron-go` v0.2.0).
 - `service/` — ClusteredService glue
 - `client/` — typed client; `cmd/loadgen/` — benchmark tool
 - `systest/` — integration tests against a real Java 1.52 ClusteredMediaDriver
-- `bench-infra/` — terraform+ansible rig for 3-node cloud benchmarks (Go vs Java engine)
+
+For the 3-node cloud sweep against the Java engine, see
+[`../bench-infra`](../bench-infra).
 
 ## Test
 
