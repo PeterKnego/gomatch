@@ -29,6 +29,16 @@ the engines are within ~2% — the divergence only shows on real hardware.
 
 ## Cloud benchmark
 
+`bench-infra/` is a self-contained terraform + ansible rig: it provisions a
+3-node fleet (AWS by default — single AZ, cluster placement group; Hetzner
+and GCP via `cloud=`), OS-tunes the hosts, starts the Java
+`ClusteredMediaDriver` on every node with either engine's service container
+(`ENGINE=go|java`), and runs a paced rate-ladder sweep (1k→150k orders/s,
+coordinated-omission corrected) plus an open-loop ceiling run from node0.
+The Go loadgen drives both engines, so the engine is the only variable.
+Credentials and personal values live only in gitignored files
+(`.env`, `terraform.tfvars`) — the committed rig is account-independent.
+
     cd bench-infra
     cp example.aws.tfvars terraform.tfvars   # edit ssh key + allow_ssh_cidr
     cp .env.example .env                     # fill in AWS credentials
