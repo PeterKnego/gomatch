@@ -207,6 +207,12 @@ public final class OrderBook {
         }
     }
 
+    ArrayList<PriceLevel> bids() { return bids; }
+    ArrayList<PriceLevel> asks() { return asks; }
+    int orderCount() { return orders.size(); }
+    long nextOrderId() { return nextOrderId; }
+    void nextOrderId(long v) { nextOrderId = v; }
+
     PriceLevel restOrder(Order o) {
         ArrayList<PriceLevel> levels = o.side == Side.BUY ? bids : asks;
         boolean desc = o.side == Side.BUY;
