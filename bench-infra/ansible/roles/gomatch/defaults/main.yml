@@ -1,0 +1,30 @@
+---
+gomatch_dir: "/opt/bench/gomatch"
+gomatch_aeron_dir: "/dev/shm/aeron-gomatch/driver"
+gomatch_jar_url: "https://repo1.maven.org/maven2/io/aeron/aeron-all/1.52.0/aeron-all-1.52.0.jar"
+gomatch_jar: "{{ gomatch_dir }}/aeron-all-1.52.0.jar"
+# javamatch (Java engine) — used when bench_engine == "java". The jar is built
+# on the control machine (./gradlew jar) and pushed to the nodes; it shares the
+# aeron-all jar above. javamatch_local_path is resolved relative to this repo's
+# checkout: gomatch and javamatch as sibling directories.
+javamatch_local_path: "{{ playbook_dir }}/../../../javamatch"
+javamatch_jar: "{{ gomatch_dir }}/javamatch.jar"
+gomatch_port_base: 20000   # same block on every host (distinct machines)
+# Paced ladder (orders/sec); each rung runs rate*10 orders (~10s), plus one
+# open-loop run at the end for the throughput ceiling.
+gomatch_rate_ladder: [1000, 5000, 10000, 20000, 40000, 60000, 80000, 100000, 125000, 150000]
+gomatch_openloop_orders: 500000
+# id -> private_ip for every cluster member, in member-id order.
+gomatch_member_ips: >-
+  {{ groups['cluster']
+     | map('extract', hostvars)
+     | sort(attribute='node_id')
+     | map(attribute='private_ip') | list }}
+gomatch_members: >-
+  {%- for ip in gomatch_member_ips -%}
+  {{ loop.index0 }},{{ ip }}:{{ gomatch_port_base }},{{ ip }}:{{ gomatch_port_base + 1 }},{{ ip }}:{{ gomatch_port_base + 2 }},{{ ip }}:{{ gomatch_port_base + 3 }},{{ ip }}:{{ gomatch_port_base + 10 }}{{ "|" if not loop.last }}
+  {%- endfor -%}
+gomatch_ingress_endpoints: >-
+  {%- for ip in gomatch_member_ips -%}
+  {{ loop.index0 }}={{ ip }}:{{ gomatch_port_base }}{{ "," if not loop.last }}
+  {%- endfor -%}

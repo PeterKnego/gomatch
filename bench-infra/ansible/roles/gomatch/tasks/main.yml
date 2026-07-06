@@ -1,0 +1,115 @@
+---
+- name: Install Go, JDK and rsync
+  ansible.builtin.apt:
+    name:
+      - golang-go
+      - "openjdk-{{ jdk_version }}-jdk-headless"
+      - rsync
+    update_cache: true
+    state: present
+
+- name: Create gomatch dirs
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ gomatch_dir }}"
+    - "{{ gomatch_dir }}/bin"
+
+- name: Sync gomatch source from the control machine
+  ansible.posix.synchronize:
+    src: "{{ gomatch_local_path }}/"
+    dest: "{{ gomatch_dir }}/src/"
+    delete: true
+    rsync_opts:
+      - "--exclude=.git"
+      - "--exclude=systest/*.jar"
+      # Never ship the rig itself: it may hold local credentials (.env),
+      # terraform state, and fetched results.
+      - "--exclude=bench-infra"
+
+- name: Fetch aeron-all jar
+  ansible.builtin.get_url:
+    url: "{{ gomatch_jar_url }}"
+    dest: "{{ gomatch_jar }}"
+    mode: "0644"
+
+- name: Build engine and loadgen
+  ansible.builtin.shell: |
+    set -e
+    cd {{ gomatch_dir }}/src
+    go build -o {{ gomatch_dir }}/bin/engine ./cmd/engine
+    go build -o {{ gomatch_dir }}/bin/loadgen ./cmd/loadgen
+  changed_when: true
+
+- name: Build the javamatch jar on the control machine
+  ansible.builtin.command: ./gradlew -q jar
+  args:
+    chdir: "{{ javamatch_local_path }}"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  when: bench_engine == "java"
+  changed_when: true
+
+- name: Push the javamatch jar
+  ansible.builtin.copy:
+    src: "{{ javamatch_local_path }}/build/libs/javamatch.jar"
+    dest: "{{ javamatch_jar }}"
+    mode: "0644"
+  when: bench_engine == "java"
+
+- name: Template launch and sweep scripts
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "{{ gomatch_dir }}/{{ item }}"
+    mode: "0755"
+  loop:
+    - run_driver.sh
+    - run_engine.sh
+    - sweep.sh
+
+- name: Stop any previous driver/engine
+  # [C]lusteredMediaDriver: the bracketed regex can't match this shell's own
+  # command line, so pkill -f doesn't SIGTERM the task running it.
+  ansible.builtin.shell: |
+    pkill -f '[C]lusteredMediaDriver' || true
+    pkill -f '[b]in/engine' || true
+    pkill -f '[j]avamatch.app.EngineMain' || true
+    sleep 1
+  changed_when: true
+
+- name: Reset cluster state (fresh benchmark run)
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: "{{ st }}"
+  loop:
+    - "{{ gomatch_dir }}/cluster"
+    - "{{ gomatch_dir }}/archive"
+    - "/dev/shm/aeron-gomatch"
+  vars:
+    st: absent
+
+- name: Recreate cluster dir (service mark file may precede the consensus module)
+  ansible.builtin.file:
+    path: "{{ gomatch_dir }}/cluster"
+    state: directory
+    mode: "0755"
+
+- name: Start ClusteredMediaDriver
+  ansible.builtin.shell: |
+    nohup {{ gomatch_dir }}/run_driver.sh > {{ gomatch_dir }}/driver.log 2>&1 &
+    echo $!
+  changed_when: true
+
+- name: Wait for the media driver CnC file
+  ansible.builtin.wait_for:
+    path: "{{ gomatch_aeron_dir }}/cnc.dat"
+    timeout: 60
+
+- name: Start the gomatch engine (service container)
+  ansible.builtin.shell: |
+    nohup {{ gomatch_dir }}/run_engine.sh > {{ gomatch_dir }}/engine.log 2>&1 &
+    echo $!
+  changed_when: true

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Java ClusteredMediaDriver for gomatch node {{ node_id }} — mirrors the
+# gomatch systest harness config, with private-IP endpoints for cross-host.
+exec java \
+  --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+  --add-exports=java.base/jdk.internal.misc=ALL-UNNAMED \
+  -XX:+UnlockDiagnosticVMOptions \
+  -XX:GuaranteedSafepointInterval=300000 \
+  -Daeron.dir={{ gomatch_aeron_dir }} \
+  -Daeron.dir.delete.on.start=true \
+  -Daeron.threading.mode=DEDICATED \
+  -Daeron.client.liveness.timeout=60000000000 \
+  -Daeron.publication.unblock.timeout=900000000000 \
+  -Daeron.archive.dir={{ gomatch_dir }}/archive \
+  -Daeron.archive.control.channel=aeron:udp?endpoint={{ private_ip }}:{{ gomatch_port_base + 10 }} \
+  -Daeron.archive.replication.channel=aeron:udp?endpoint={{ private_ip }}:0 \
+  -Daeron.archive.threading.mode=SHARED \
+  -Daeron.cluster.dir={{ gomatch_dir }}/cluster \
+  -Daeron.cluster.members='{{ gomatch_members }}' \
+  -Daeron.cluster.member.id={{ node_id }} \
+  -Daeron.cluster.ingress.channel=aeron:udp?term-length=1m \
+  -Daeron.cluster.replication.channel=aeron:udp?endpoint={{ private_ip }}:0 \
+  -Daeron.cluster.service.count=1 \
+  -cp {{ gomatch_jar }} \
+  io.aeron.cluster.ClusteredMediaDriver

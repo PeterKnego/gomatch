@@ -1,0 +1,23 @@
+# Terraform
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+terraform.tfvars.*
+!example.tfvars
+!example.aws.tfvars
+crash.log
+
+# Generated inventory & SSH
+inventory/hosts.yml
+*.pem
+
+# Ansible
+ansible/*.retry
+
+#env vars
+.env
+
+# Results pulled from the fleet
+bench-out/

@@ -1,0 +1,68 @@
+---
+# 3-node matching-engine benchmark on Aeron Cluster: the Go engine (gomatch)
+# or the Java engine (javamatch) behind the same Java ClusteredMediaDriver,
+# driven by the Go loadgen from node0 so the client/measurement side is
+# identical for both engines.
+#
+#   make up                      # provision + inventory
+#   make bench                   # Go engine sweep
+#   make bench ENGINE=java       # Java engine sweep (fresh cluster state)
+#
+# Results land in bench-out/<timestamp>/results-<engine>.txt.
+
+- name: Prepare hosts and start the cluster + engine
+  hosts: cluster
+  become: true
+  gather_facts: false
+  vars:
+    gomatch_local_path: "{{ playbook_dir }}/../.."
+  pre_tasks:
+    - name: Wait for SSH to come up
+      ansible.builtin.wait_for_connection:
+        delay: 10
+        timeout: 180
+    - name: Gather facts (after SSH is reachable)
+      ansible.builtin.setup:
+  roles:
+    - os_tune
+    - gomatch
+
+- name: Run the rate sweep from node0 and collect results
+  hosts: node0
+  become: true
+  gather_facts: true
+  vars:
+    results_dir: "{{ playbook_dir }}/../bench-out/{{ ansible_date_time.iso8601_basic_short }}"
+  vars_files:
+    - roles/gomatch/defaults/main.yml   # gomatch_dir/ingress/aeron_dir for this role-less play
+  tasks:
+    - name: Smoke test — small paced run against the live cluster
+      ansible.builtin.command: >
+        {{ gomatch_dir }}/bin/loadgen -orders 1000 -rate 1000
+        -ingress {{ gomatch_ingress_endpoints }}
+        -egress {{ private_ip }}:0
+        -aeron-dir {{ gomatch_aeron_dir }}
+      register: smoke
+      retries: 3
+      delay: 10
+      until: smoke.rc == 0
+      changed_when: true
+
+    - name: Show smoke result
+      ansible.builtin.debug:
+        msg: "{{ smoke.stdout_lines | select('match', '^(orders|ack)') | list }}"
+
+    - name: Run the sweep
+      ansible.builtin.command: "{{ gomatch_dir }}/sweep.sh"
+      register: sweep
+      changed_when: true
+
+    - name: Fetch results
+      ansible.builtin.fetch:
+        src: "{{ gomatch_dir }}/results.txt"
+        dest: "{{ results_dir }}/results-{{ bench_engine }}.txt"
+        flat: true
+
+    - name: Where the results went
+      ansible.builtin.debug:
+        msg: "results: {{ results_dir }}/results-{{ bench_engine }}.txt"

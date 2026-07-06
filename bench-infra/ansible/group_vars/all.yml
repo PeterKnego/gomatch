@@ -1,0 +1,9 @@
+# Fleet-wide settings for the gomatch/javamatch benchmark rig.
+jdk_version: "21"
+# Base dir for everything the rig writes on the hosts. os_tune mounts local
+# instance-store NVMe here when the instance type has one (e.g. c6id), so the
+# Aeron cluster/archive dirs land on local NVMe automatically.
+remote_home: "/opt/bench"
+# Which matching engine the service containers run: "go" (gomatch) or "java"
+# (javamatch). Override per run: ansible-playbook gomatch.yml -e bench_engine=java
+bench_engine: "go"

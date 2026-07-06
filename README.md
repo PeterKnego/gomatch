@@ -10,6 +10,7 @@ ClusteredService on Aeron Cluster (fork `PeterKnego/aeron-go` v0.2.0).
 - `service/` — ClusteredService glue
 - `client/` — typed client; `cmd/loadgen/` — benchmark tool
 - `systest/` — integration tests against a real Java 1.52 ClusteredMediaDriver
+- `bench-infra/` — terraform+ansible rig for 3-node cloud benchmarks (Go vs Java engine)
 
 ## Test
 

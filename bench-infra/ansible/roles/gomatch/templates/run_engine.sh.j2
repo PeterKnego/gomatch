@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Matching-engine service container ({{ bench_engine }}). Retries at startup
+# (the consensus module may not have finished its election yet); once up it
+# runs until killed.
+export AERON_DIR={{ gomatch_aeron_dir }}
+export CLUSTER_DIR={{ gomatch_dir }}/cluster
+for i in $(seq 1 30); do
+{% if bench_engine == "java" %}
+  java \
+    --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+    --add-exports=java.base/jdk.internal.misc=ALL-UNNAMED \
+    -XX:+UnlockDiagnosticVMOptions \
+    -XX:GuaranteedSafepointInterval=300000 \
+    -cp {{ javamatch_jar }}:{{ gomatch_jar }} \
+    javamatch.app.EngineMain
+{% else %}
+  {{ gomatch_dir }}/bin/engine
+{% endif %}
+  echo "engine exited (attempt $i), retrying in 2s" >&2
+  sleep 2
+done

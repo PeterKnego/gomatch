@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Paced rate ladder + one open-loop ceiling run, from node0.
+set -uo pipefail
+BIN={{ gomatch_dir }}/bin/loadgen
+ARGS=(-ingress "{{ gomatch_ingress_endpoints }}" -egress "{{ private_ip }}:0" -aeron-dir "{{ gomatch_aeron_dir }}")
+OUT={{ gomatch_dir }}/results.txt
+FULL={{ gomatch_dir }}/results-full.log
+: > "$OUT"
+: > "$FULL"
+
+run() {
+  # keep only the loadgen result lines in OUT; FULL gets everything for debugging
+  "$BIN" "$@" "${ARGS[@]}" 2>&1 | tee -a "$FULL" | grep -E "^(orders=|ack latency)" >> "$OUT"
+}
+
+{% for rate in gomatch_rate_ladder %}
+echo "=== rate={{ rate }} ===" >> "$OUT"
+run -orders {{ rate * 10 }} -rate {{ rate }}
+{% endfor %}
+
+echo "=== open-loop ===" >> "$OUT"
+run -orders {{ gomatch_openloop_orders }}
+
+cat "$OUT"
