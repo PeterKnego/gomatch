@@ -40,6 +40,35 @@ Notes on reading this table:
   by scheduling jitter on this shared VM rather than either engine's
   matching-logic cost.
 
+## Paced vs open-loop: which models real traffic
+
+The two modes answer different questions, and only one of them looks like
+production order flow.
+
+- **Paced mode models real user requests.** Real submitters act on their own
+  clocks — an order is sent when a strategy fires, independent of whether
+  the previous ack has arrived. Paced mode reproduces that: arrivals follow
+  a fixed schedule regardless of system state, and latency is measured from
+  each order's *scheduled* send time (coordinated-omission corrected), which
+  is the submitter's experience of the system. Read the ladder rungs as
+  "the latency a user sees at N orders/sec."
+- **Open-loop mode is a saturation test.** Despite the name (kept from
+  benchmarking convention; queueing-theory literature would call the *paced*
+  mode "open-loop arrival"), submission here is throttled only by ingress
+  back-pressure, so demand permanently exceeds drain rate and a queue grows
+  for the whole burst. Its throughput is the capacity ceiling; its latency
+  columns are **queue-depth indicators, not request latencies** — a p50 of
+  hundreds of ms means the median order sat behind ~p50 × drain-rate queued
+  orders, and a *microsecond* open-loop p50 (e.g. the Java engine on the
+  3-node fleet) means the engine drained as fast as the client could submit
+  and no queue ever formed. Never compare an open-loop latency cell to a
+  paced one.
+- **Caveat in the other direction:** pacing here is perfectly uniform (one
+  order every 1/rate), which is kinder than real traffic. Real order flow is
+  bursty — Poisson at best, event-driven microbursts in practice — so
+  real-world tails at a given *average* rate sit somewhere between the paced
+  rung and short stretches of open-loop behavior.
+
 ## Wire-compat cross-check
 
 The Go loadgen (`cmd/loadgen`) was pointed at a running **Java** engine
