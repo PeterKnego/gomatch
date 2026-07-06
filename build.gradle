@@ -68,3 +68,20 @@ tasks.register('systest', Test) {
     timeout = Duration.ofMinutes(10)
     outputs.upToDateWhen { false }
 }
+
+tasks.register('runEngine', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'javamatch.app.EngineMain'
+    jvmArgs '--add-opens=java.base/sun.nio.ch=ALL-UNNAMED',
+            '--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED'
+}
+
+tasks.register('runLoadGen', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'javamatch.app.LoadGen'
+    jvmArgs '--add-opens=java.base/sun.nio.ch=ALL-UNNAMED',
+            '--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED'
+    if (project.hasProperty('appArgs')) {
+        args project.property('appArgs').split(' ')
+    }
+}
