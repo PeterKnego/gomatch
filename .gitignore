@@ -1,2 +1,5 @@
 *.jar
 driver-*.log
+
+.idea/
+*.iml
