@@ -48,13 +48,20 @@ public final class LoadGen {
         String aeronDir = "/dev/shm/aeron-" + System.getProperty("user.name");
         String ingress = "0=localhost:20000";
         String egress = "localhost:0";
-        for (int i = 0; i + 1 < args.length; i += 2) {
+        for (int i = 0; i < args.length; i += 2) {
             switch (args[i]) {
-                case "-orders" -> orders = Integer.parseInt(args[i + 1]);
-                case "-rate" -> rate = Integer.parseInt(args[i + 1]);
-                case "-aeron-dir" -> aeronDir = args[i + 1];
-                case "-ingress" -> ingress = args[i + 1];
-                case "-egress" -> egress = args[i + 1];
+                case "-orders", "-rate", "-aeron-dir", "-ingress", "-egress" -> {
+                    if (i + 1 >= args.length) {
+                        throw new IllegalArgumentException("flag needs an argument: " + args[i]);
+                    }
+                    switch (args[i]) {
+                        case "-orders" -> orders = Integer.parseInt(args[i + 1]);
+                        case "-rate" -> rate = Integer.parseInt(args[i + 1]);
+                        case "-aeron-dir" -> aeronDir = args[i + 1];
+                        case "-ingress" -> ingress = args[i + 1];
+                        case "-egress" -> egress = args[i + 1];
+                    }
+                }
                 default -> throw new IllegalArgumentException("unknown flag " + args[i]);
             }
         }
