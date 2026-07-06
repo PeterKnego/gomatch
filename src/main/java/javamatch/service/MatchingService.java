@@ -109,6 +109,11 @@ public final class MatchingService implements ClusteredService {
             System.err.println("unexpected schemaId=" + headerDecoder.schemaId() + " templateId=" + templateId);
             return;
         }
+        if (length < SBE_HEADER_LENGTH + headerDecoder.blockLength()) {
+            // Decode errors are logged and dropped, never thrown (Go parity).
+            System.err.println("truncated frame - templateId=" + templateId + " length=" + length);
+            return;
+        }
         List<Event> events;
         switch (templateId) {
             case NEW_ORDER_TEMPLATE_ID -> {

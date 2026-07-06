@@ -121,6 +121,22 @@ class MatchingServiceTest {
     }
 
     @Test
+    void truncatedFrameLoggedAndDropped() {
+        MatchingService s = new MatchingService();
+        s.onStart(new FakeCluster(0), null);
+        FakeClientSession sess = new FakeClientSession(1);
+        s.onSessionOpen(sess, 1);
+        FakeClientSession other = new FakeClientSession(2);
+        s.onSessionOpen(other, 1);
+        UnsafeBuffer order = newOrderFrame(1, Side.BUY, 10, 5);
+        // Valid SBE header but body shorter than blockLength: must be
+        // logged and dropped, not thrown (Go OnSessionMessage parity).
+        s.onSessionMessage(sess, 1, order, 0, order.capacity() - 8, null);
+        assertEquals(0, sess.frames.size());
+        assertEquals(0, other.frames.size());
+    }
+
+    @Test
     void snapshotChunksRoundTrip() {
         MatchingService s = new MatchingService();
         s.onStart(new FakeCluster(0), null);
