@@ -1,0 +1,70 @@
+plugins {
+    id 'java'
+}
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+configurations {
+    sbe
+}
+
+dependencies {
+    implementation 'io.aeron:aeron-all:1.52.0'
+    sbe 'uk.co.real-logic:sbe-all:1.38.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+def sbeDir = layout.buildDirectory.dir('generated/sbe')
+
+tasks.register('generateSbe', JavaExec) {
+    classpath = configurations.sbe
+    mainClass = 'uk.co.real_logic.sbe.SbeTool'
+    systemProperty 'sbe.output.dir', sbeDir.get().asFile.absolutePath
+    systemProperty 'sbe.target.language', 'Java'
+    systemProperty 'sbe.target.namespace', 'javamatch.protocol.codecs'
+    args file('src/main/resources/gomatch-schema.xml').absolutePath
+    inputs.file 'src/main/resources/gomatch-schema.xml'
+    outputs.dir sbeDir
+}
+
+sourceSets.main.java.srcDir sbeDir
+tasks.named('compileJava') { dependsOn 'generateSbe' }
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
+    jvmArgs '--add-opens=java.base/sun.nio.ch=ALL-UNNAMED',
+            '--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED'
+}
+
+sourceSets {
+    systest {
+        java.srcDir 'src/systest/java'
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+configurations {
+    systestImplementation.extendsFrom implementation, testImplementation
+    systestRuntimeOnly.extendsFrom runtimeOnly, testRuntimeOnly
+}
+
+tasks.register('systest', Test) {
+    description = 'Integration tests against an in-process ClusteredMediaDriver'
+    testClassesDirs = sourceSets.systest.output.classesDirs
+    classpath = sourceSets.systest.runtimeClasspath
+    useJUnitPlatform()
+    jvmArgs '--add-opens=java.base/sun.nio.ch=ALL-UNNAMED',
+            '--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED'
+    timeout = Duration.ofMinutes(10)
+    outputs.upToDateWhen { false }
+}
