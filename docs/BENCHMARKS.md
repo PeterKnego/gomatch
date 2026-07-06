@@ -91,3 +91,69 @@ round-trips.
 
 Full raw output (all four loadgen invocations per engine, PIDs, and cleanup
 evidence) is recorded in `.superpowers/sdd/task-13-report.md`.
+
+---
+
+## 3-node AWS cluster sweep (2026-07-06)
+
+Paced rate-ladder sweep on a real 3-node Aeron Cluster fleet, run with the
+`bench-infra` rig in the gomatch repo (`gomatch/bench-infra`): 3 ×
+**c7i.4xlarge** (16 vCPU, sustained networking), us-east-1, single AZ,
+cluster placement group, Ubuntu 24.04, Temurin/OpenJDK 21 headless.
+Every node runs the Java `ClusteredMediaDriver` (media driver + archive +
+consensus module, aeron-all 1.52.0) plus one engine service container.
+**The Go loadgen drives both engines from node0** (egress bound to node0's
+private IP), so the client and measurement side is identical and the engine
+is the only variable. Each rung submits `rate × 10` orders (~10 s); latency
+is ack latency from the *scheduled* send time (coordinated-omission
+corrected). One open-loop run (500k orders) closes each sweep. Fresh cluster
+state per engine (log/archive/shm wiped, cluster re-formed).
+
+| rate (ord/s) | Go p50 | Go p99 | Go p99.9 | Java p50 | Java p99 | Java p99.9 |
+|---|---|---|---|---|---|---|
+| 1,000 | 1.234ms | 3.224ms | 3.627ms | 1.106ms | 3.138ms | 3.650ms |
+| 5,000 | 750.8µs | 1.325ms | 1.382ms | 288.9µs | 454.2µs | 510.2µs |
+| 10,000 | 720.2µs | 1.291ms | 1.394ms | 254.6µs | 381.8µs | 960.5µs |
+| 20,000 | 692.2µs | 1.263ms | 1.914ms | 221.4µs | 354.4µs | 1.852ms |
+| 40,000 | 674.7µs | 1.278ms | 3.289ms | 204.2µs | 344.8µs | 2.686ms |
+| 60,000 | 696.8µs | 2.587ms | 4.699ms | 222.7µs | 379.6µs | 4.030ms |
+| 80,000 | 699.9µs | 3.432ms | 5.166ms | 212.6µs | 555.6µs | 5.040ms |
+| 100,000 | 695.6µs | 4.714ms | 13.798ms | 223.3µs | 1.058ms | 6.372ms |
+| 125,000 | 756.4µs | 6.905ms | 8.815ms | 222.4µs | 1.245ms | 6.241ms |
+| 150,000 | 808.6µs | 11.671ms | 16.314ms | 248.7µs | 4.071ms | 12.270ms |
+| open-loop | 277,200 ord/s | p50 335.7ms | p99 537.7ms | **354,285 ord/s** | p50 411.8µs | p99 17.03ms |
+
+Both engines sustained every rung with 100% acks (no drops anywhere on the
+ladder).
+
+### Where they diverge
+
+- **Median: everywhere, by a constant ≈ 470–560µs.** From 5k/s up, Go's p50
+  sits at ~675–810µs while Java's sits at ~205–250µs (~3×). The driver
+  fleet and the client are identical, so this fixed gap is the service
+  container itself: the aeron-go cluster service agent's poll/idle loop adds
+  per-message turnaround that the Java `ClusteredServiceContainer` does not.
+  (The 1k rung is warmup-dominated for both.)
+- **Tail: knee at ~60k/s (Go) vs ~100k/s (Java).** Go's p99 leaves the
+  ~1.3ms floor at 60k/s (2.6ms) and reaches 11.7ms at 150k/s. Java's p99
+  stays under 600µs through 80k/s, crosses 1ms around 100k/s, and reaches
+  4.1ms at 150k/s — consistently ~3× lower in the upper half of the ladder.
+- **Ceiling: Java +28%.** Open-loop, same 500k-order burst: 354k ord/s
+  (Java) vs 277k ord/s (Go). The open-loop p50 difference is dramatic
+  (412µs vs 336ms): the Java engine drains the burst nearly as fast as the
+  Go client can submit it, while the Go engine builds a deep queue.
+
+Contrast with the single-node localhost result above (engines within ~2%):
+on localhost with a shared 4-core VM the bottleneck was the shared
+media-driver/consensus stack, masking engine differences. On a real 3-node
+fleet with dedicated cores and cross-host replication, the service-container
+implementation dominates the visible latency budget, and javamatch's zero-copy
+flyweight decode + reused egress buffers pull clearly ahead.
+
+Caveats: one fleet, one 10s run per rung (no repeat/variance analysis);
+single-instrument workload; both engines behind the same Java
+consensus/driver infra (this benchmarks the service container + engine, not
+aeron-go's driver). Raw results: `bench-infra/bench-out/20260706T103037/`
+(`results-go.txt`) and `.../20260706T103347/` (`results-java.txt`) on the
+control machine; reproduce with `make up && make bench-both && make destroy`
+in `gomatch/bench-infra`.
