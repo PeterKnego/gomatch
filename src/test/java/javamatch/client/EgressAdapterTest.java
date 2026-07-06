@@ -8,7 +8,6 @@ import javamatch.protocol.codecs.RejectReason;
 import javamatch.protocol.codecs.Side;
 import javamatch.protocol.codecs.TradeEventEncoder;
 import org.agrona.ExpandableArrayBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;

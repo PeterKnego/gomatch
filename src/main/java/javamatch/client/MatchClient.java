@@ -64,6 +64,9 @@ public final class MatchClient implements AutoCloseable {
             .ingressEndpoints(ingressEndpoints)
             .egressChannel("aeron:udp?alias=gomatch-egress|endpoint=" + egressEndpoint)
             .egressListener(new EgressAdapter(listener))
+            // Unlike the Go client's separate 30s connect-only deadline,
+            // messageTimeoutNs bounds BOTH the initial connect and post-connect
+            // cluster message timeouts; 30s is deliberate for both.
             .messageTimeoutNs(TimeUnit.SECONDS.toNanos(30)));
         return new MatchClient(cluster);
     }
