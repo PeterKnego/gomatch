@@ -102,6 +102,34 @@ public final class OrderBook {
         return events;
     }
 
+    /**
+     * Removes a resting order. The engine owns the order map, so it performs
+     * the ownership check: a cancel from a non-owner is rejected.
+     */
+    public List<Event> cancel(long orderId, long requestingOwner) {
+        List<Event> events = new ArrayList<>();
+        Order o = orders.get(orderId);
+        if (o == null) {
+            events.add(new Event(EventType.REJECTED)
+                .orderId(orderId).owner(requestingOwner).reason(RejectReason.UNKNOWN_ORDER));
+            return events;
+        }
+        if (o.owner != requestingOwner) {
+            events.add(new Event(EventType.REJECTED)
+                .orderId(orderId).owner(requestingOwner).reason(RejectReason.NOT_OWNER));
+            return events;
+        }
+        PriceLevel lvl = o.level;
+        lvl.totalQty -= o.qty;
+        unlink(o);
+        events.add(new Event(EventType.CANCELED)
+            .orderId(o.id).clientOrderId(o.clientOrderId).owner(o.owner)
+            .side(o.side).price(o.price).remainingQty(o.qty));
+        events.add(new Event(EventType.BOOK_UPDATE)
+            .side(o.side).price(lvl.price).aggregateQty(lvl.totalQty));
+        return events;
+    }
+
     private static void touch(ArrayList<PriceLevel> changed, ArrayList<Side> changedSides, Side side, PriceLevel lvl) {
         for (PriceLevel l : changed) {
             if (l == lvl) {
