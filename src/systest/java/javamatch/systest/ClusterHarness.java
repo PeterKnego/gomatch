@@ -86,11 +86,18 @@ final class ClusterHarness implements AutoCloseable {
                 .ingressChannel("aeron:udp?term-length=64k")
                 .replicationChannel("aeron:udp?endpoint=localhost:0")
                 .serviceCount(1));
-        container = ClusteredServiceContainer.launch(
-            new ClusteredServiceContainer.Context()
-                .aeronDirectoryName(aeronDir)
-                .clusterDir(clusterDir)
-                .clusteredService(new MatchingService()));
+        try {
+            container = ClusteredServiceContainer.launch(
+                new ClusteredServiceContainer.Context()
+                    .aeronDirectoryName(aeronDir)
+                    .clusterDir(clusterDir)
+                    .clusteredService(new MatchingService()));
+        } catch (Exception ex) {
+            // Don't leak the driver (threads, /dev/shm dir) on a partial launch.
+            CloseHelper.quietClose(driver);
+            driver = null;
+            throw ex;
+        }
     }
 
     String aeronDir() {
@@ -109,9 +116,11 @@ final class ClusterHarness implements AutoCloseable {
 
     /** Stops the node gracefully, keeping cluster and archive dirs for a restart. */
     void shutdown() {
-        CloseHelper.close(container);
+        // quietClose: a failed container close must not skip the driver close
+        // (or, via close(), the directory cleanup).
+        CloseHelper.quietClose(container);
         container = null;
-        CloseHelper.close(driver);
+        CloseHelper.quietClose(driver);
         driver = null;
     }
 
