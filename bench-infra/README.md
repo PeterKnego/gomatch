@@ -2,8 +2,7 @@
 
 Provisions a 3-node Aeron Cluster fleet (AWS default; Hetzner/GCP via
 `cloud=`), tunes the hosts, starts the Java `ClusteredMediaDriver` on every
-node with either the **Go engine** (gomatch, this repo) or the **Java
-engine** ([javamatch](../../javamatch), expected as a sibling checkout), and
+node with either the **Go engine** ([go/](../go)) or the **Java engine** ([java/](../java)), and
 runs a paced rate-ladder sweep from node0. The Go loadgen drives both
 engines, so the client/measurement side is constant and the engine is the
 only variable.

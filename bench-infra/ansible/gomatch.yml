@@ -15,7 +15,7 @@
   become: true
   gather_facts: false
   vars:
-    gomatch_local_path: "{{ playbook_dir }}/../.."
+    gomatch_local_path: "{{ playbook_dir }}/../../go"
   pre_tasks:
     - name: Wait for SSH to come up
       ansible.builtin.wait_for_connection:

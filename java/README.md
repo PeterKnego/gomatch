@@ -2,7 +2,7 @@
 
 Single-instrument limit order book matching engine running as a Java
 ClusteredService on Aeron Cluster 1.52. Java port of
-[gomatch](../gomatch) — same SBE schema (901), same snapshot format, same
+[gomatch](../go) — same SBE schema (901), same snapshot format, same
 event semantics; either project's loadgen can benchmark either engine.
 
 ## Layout

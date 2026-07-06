@@ -5,9 +5,8 @@ gomatch_jar_url: "https://repo1.maven.org/maven2/io/aeron/aeron-all/1.52.0/aeron
 gomatch_jar: "{{ gomatch_dir }}/aeron-all-1.52.0.jar"
 # javamatch (Java engine) — used when bench_engine == "java". The jar is built
 # on the control machine (./gradlew jar) and pushed to the nodes; it shares the
-# aeron-all jar above. javamatch_local_path is resolved relative to this repo's
-# checkout: gomatch and javamatch as sibling directories.
-javamatch_local_path: "{{ playbook_dir }}/../../../javamatch"
+# aeron-all jar above.
+javamatch_local_path: "{{ playbook_dir }}/../../java"
 javamatch_jar: "{{ gomatch_dir }}/javamatch.jar"
 gomatch_port_base: 20000   # same block on every host (distinct machines)
 # Paced ladder (orders/sec); each rung runs rate*10 orders (~10s), plus one

@@ -97,7 +97,7 @@ evidence) is recorded in `.superpowers/sdd/task-13-report.md`.
 ## 3-node AWS cluster sweep (2026-07-06)
 
 Paced rate-ladder sweep on a real 3-node Aeron Cluster fleet, run with the
-`bench-infra` rig in the gomatch repo (`gomatch/bench-infra`): 3 ×
+`bench-infra` rig at the repo root (`bench-infra/`): 3 ×
 **c7i.4xlarge** (16 vCPU, sustained networking), us-east-1, single AZ,
 cluster placement group, Ubuntu 24.04, Temurin/OpenJDK 21 headless.
 Every node runs the Java `ClusteredMediaDriver` (media driver + archive +
@@ -156,4 +156,4 @@ consensus/driver infra (this benchmarks the service container + engine, not
 aeron-go's driver). Raw results: `bench-infra/bench-out/20260706T103037/`
 (`results-go.txt`) and `.../20260706T103347/` (`results-java.txt`) on the
 control machine; reproduce with `make up && make bench-both && make destroy`
-in `gomatch/bench-infra`.
+in `bench-infra/`.

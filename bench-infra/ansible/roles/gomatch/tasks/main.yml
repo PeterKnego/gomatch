@@ -25,9 +25,6 @@
     rsync_opts:
       - "--exclude=.git"
       - "--exclude=systest/*.jar"
-      # Never ship the rig itself: it may hold local credentials (.env),
-      # terraform state, and fetched results.
-      - "--exclude=bench-infra"
 
 - name: Fetch aeron-all jar
   ansible.builtin.get_url:
